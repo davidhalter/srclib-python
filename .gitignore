@@ -2,3 +2,4 @@
 build/
 dist/
 grapher.egg-info/
+*.sw[op]
