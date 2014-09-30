@@ -154,15 +154,15 @@ def get_defs_refs(source_files):
 
         log('getting refs for source file (%d/%d) %s' % (i, len(source_files), source_file))
         try:
-            for name_part, def_ in parserContext.refs():
+            for name, def_ in parserContext.refs():
                 try:
                     full_name, err = full_name_of_def(def_, from_ref=True)
                     if err is not None:
                         raise Exception(err)
                     elif full_name == '':
                         raise Exception('full_name is empty')
-                    start = linecoler.convert(name_part.start_pos)
-                    end = linecoler.convert(name_part.end_pos)
+                    start = linecoler.convert(name.start_pos)
+                    end = linecoler.convert(name.end_pos)
                     refs.append(Ref(
                         DefPath=full_name.replace('.', '/'),
                         DefFile=def_.module_path,
@@ -173,7 +173,7 @@ def get_defs_refs(source_files):
                         ToBuiltin=def_.in_builtin_module(),
                     ))
                 except Exception as e:
-                    error('failed to convert ref (%s) in source file %s: %s' % (str((name_part, def_)), source_file, str(e)))
+                    error('failed to convert ref (%s) in source file %s: %s' % (str((name, def_)), source_file, str(e)))
         except Exception as e:
             error('failed to get refs for source file %s: %s' % (source_file, str(e)))
 
@@ -187,7 +187,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
 
     # If def_ is a name, then the location of the definition is the last name part
     if isinstance(def_._definition, jedi.parser.representation.Name):
-        last_name = def_._definition.names[-1]
+        last_name = def_._name
         start = linecoler.convert(last_name.start_pos)
         end = start + len(last_name._string)
     else:
@@ -217,7 +217,7 @@ def full_name_of_def(def_, from_ref=False):
 
     if def_.type == 'statement':
         # kludge for self.* definitions
-        if def_.parent().type == 'function' and def_._definition.names[0]._string == u'self':
+        if def_.parent().type == 'function' and def_.name == 'self':
             parent = def_.parent()
             while parent.type != 'class':
                 parent = parent.parent()
@@ -311,14 +311,13 @@ class ParserContext(object):
 
     def import_refs(self, import_):
         for name in import_.get_all_import_names():
-            for name_part in name.names:
                 defs = jedi.api.Script(
                     path=self.source_file,
-                    line=name_part.start_pos[0],
-                    column=name_part.start_pos[1],
+                    line=name.start_pos[0],
+                    column=name.start_pos[1],
                 ).goto_assignments()
                 for def_ in defs:
-                    yield (name_part, def_)
+                    yield (name, def_)
 
     def stmt_refs(self, stmt):
         if isinstance(stmt, jedi.parser.representation.KeywordStatement):
@@ -330,33 +329,32 @@ class ParserContext(object):
             for r in self.scope_refs(stmt): yield r
             return
 
-        for token in stmt._token_list:
-            if not isinstance(token, jedi.parser.representation.Name):
+        for name in stmt._token_list:
+            if not isinstance(name, jedi.parser.representation.Name):
                 continue
-            for name_part in token.names:
-                # Note: we call goto_definitions instead of goto_assignments,
-                # because otherwise the reference will not follow imports (and
-                # also generates bogus local definitions whose paths conflict
-                # with those of actual definitions). This uses a modified
-                # goto_definitions (resolve_variables_to_types option) that
-                # *DOES NOT* follow assignment statements to resolve variables
-                # to types (because that's not what we want).
-                defs = jedi.api.Script(
-                    path=self.source_file,
-                    line=name_part.start_pos[0],
-                    column=name_part.start_pos[1],
-                    resolve_variables_to_types=False,
-                ).goto_definitions()
+            # Note: we call goto_definitions instead of goto_assignments,
+            # because otherwise the reference will not follow imports (and
+            # also generates bogus local definitions whose paths conflict
+            # with those of actual definitions). This uses a modified
+            # goto_definitions (resolve_variables_to_types option) that
+            # *DOES NOT* follow assignment statements to resolve variables
+            # to types (because that's not what we want).
+            defs = jedi.api.Script(
+                path=self.source_file,
+                line=name.start_pos[0],
+                column=name.start_pos[1],
+                resolve_variables_to_types=False,
+            ).goto_definitions()
 
-                # Note(beyang): For now, only yield the first definition.
-                # Otherwise, multiple references to multiple definitions will
-                # yield dup references. In the future, might want to do
-                # something smarter here.
-                i = 0
-                for def_ in defs:
-                    if i > 0: break
-                    yield (name_part, def_)
-                    i += 1
+            # Note(beyang): For now, only yield the first definition.
+            # Otherwise, multiple references to multiple definitions will
+            # yield dup references. In the future, might want to do
+            # something smarter here.
+            i = 0
+            for def_ in defs:
+                if i > 0: break
+                yield (name, def_)
+                i += 1
 
 def resolve_import_paths(scopes):
     for s in scopes.copy():
