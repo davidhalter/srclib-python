@@ -5,7 +5,6 @@ import string
 import argparse as ap
 import subprocess
 from os import path
-from glob import glob
 from collections import namedtuple
 
 import jedi
@@ -13,13 +12,16 @@ import jedi
 global verbose_, quiet_
 SOURCE_FILE_BATCH = 10
 
+
 def log(msg):
     if verbose_:
         sys.stderr.write(msg + '\n')
 
+
 def error(msg):
     if not quiet_:
         sys.stderr.write(msg + '\n')
+
 
 def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTrunc=None):
     global verbose_, quiet_
@@ -30,15 +32,18 @@ def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTr
     if nSourceFilesTrunc is not None:
         source_files = source_files[:nSourceFilesTrunc]
 
-    all_data = { 'Defs': [], 'Refs': [] }
+    all_data = {'Defs': [], 'Refs': []}
     for i in xrange(0, len(source_files), SOURCE_FILE_BATCH):
-        log('processing source files %d to %d of %d' % (i, i+SOURCE_FILE_BATCH, len(source_files)))
-        batch = source_files[i:i+SOURCE_FILE_BATCH]
+        log('processing source files %d to %d of %d' % (i, i + SOURCE_FILE_BATCH, len(source_files)))
+        batch = source_files[i:i + SOURCE_FILE_BATCH]
 
         args = ["python", "-m", "grapher.graph", "--dir", "."]
-        if verbose: args.append('--verbose')
-        if quiet: args.append('--quiet')
-        if pretty: args.append('--pretty')
+        if verbose:
+            args.append('--verbose')
+        if quiet:
+            args.append('--quiet')
+        if pretty:
+            args.append('--pretty')
         args.append('--files')
         args.extend(batch)
         p = subprocess.Popen(args, stdout=subprocess.PIPE)
@@ -59,7 +64,7 @@ def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
     verbose_, quiet_ = verbose, quiet
     os.chdir(dir_)          # set working directory to be source directory
 
-    jedi.cache.never_clear_cache = True # never clear caches, because running in batch
+    jedi.cache.never_clear_cache = True  # never clear caches, because running in batch
 
     modules_and_files = [(filename_to_module_name(f), f) for f in source_files]
     for mf in modules_and_files:
@@ -123,6 +128,7 @@ def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
         'Refs': [r.__dict__ for r in unique_refs],
     }, indent=json_indent)
 
+
 def get_source_files(dir_):
     source_files = []
     for dirpath, dirnames, filenames in os.walk(dir_):
@@ -131,6 +137,7 @@ def get_source_files(dir_):
             if os.path.splitext(filename)[1] == '.py':
                 source_files.append(os.path.normpath(os.path.join(rel_dirpath, filename)))
     return source_files
+
 
 def get_defs_refs(source_files):
     defs, refs = [], []
@@ -192,7 +199,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
         end = start + len(last_name._string)
     else:
         start = linecoler.convert(def_.start_pos)
-        end = start_pos + len(def_.name)
+        end = start + len(def_.name)
 
     return Def(
         Path=full_name.replace('.', '/'),
@@ -241,13 +248,15 @@ def full_name_of_def(def_, from_ref=False):
     # module components. Luckily, the module_path is relative in this case.
     return path.join(supermodule, full_name), None
 
+
 def supermodule_path(module_path):
     if path.basename(module_path) == '__init__.py':
         return path.dirname(path.dirname(module_path))
     return path.dirname(module_path)
 
+
 def abs_module_path_to_relative_module_path(module_path):
-    relpath = path.relpath(module_path) # relative from pwd (which is set in main)
+    relpath = path.relpath(module_path)  # relative from pwd (which is set in main)
     if not relpath.startswith('..'):
         return relpath, None
     components = module_path.split(os.sep)
@@ -257,19 +266,20 @@ def abs_module_path_to_relative_module_path(module_path):
             pIdx = i
             break
     if pIdx != -1:
-        return path.join(*components[i+1:]), None
+        return path.join(*components[i + 1:]), None
 
     for i, cmpt in enumerate(components):
         if cmpt.startswith('python'):
             pIdx = i
             break
     if pIdx != -1:
-        return path.join(*components[i+1:]), None
+        return path.join(*components[i + 1:]), None
     return None, ("could not convert absolute module path %s to relative module path" % module_path)
-        
+
 
 Def = namedtuple('Def', ['Path', 'Kind', 'Name', 'File', 'DefStart', 'DefEnd', 'Exported', 'Docstring', 'Data'])
 Ref = namedtuple('Ref', ['DefPath', 'DefFile', 'Def', 'File', 'Start', 'End', "ToBuiltin"])
+
 
 class ParserContext(object):
     def __init__(self, source_file):
@@ -280,7 +290,8 @@ class ParserContext(object):
 
     def defs(self):
         for name in self.parser.module.get_defined_names():
-            for d in self.defs_(name): yield d
+            for d in self.defs_(name):
+                yield d
 
     def defs_(self, name):
         if isinstance(name.parent, jedi.parser.representation.Import):
@@ -289,7 +300,8 @@ class ParserContext(object):
         yield name
         if isinstance(name.parent, jedi.parser.representation.Scope) and not isinstance(name.parent, jedi.parser.representation.Flow):
             for subname in name.parent.get_defined_names():
-                for d in self.defs_(subname): yield d
+                for d in self.defs_(subname):
+                    yield d
 
     def refs(self):
         for r in self.scope_refs(self.parser.module):
@@ -326,7 +338,8 @@ class ParserContext(object):
             return
 
         if stmt.is_scope():
-            for r in self.scope_refs(stmt): yield r
+            for r in self.scope_refs(stmt):
+                yield r
             return
 
         for name in stmt._token_list:
@@ -352,9 +365,11 @@ class ParserContext(object):
             # something smarter here.
             i = 0
             for def_ in defs:
-                if i > 0: break
+                if i > 0:
+                    break
                 yield (name, def_)
                 i += 1
+
 
 def resolve_import_paths(scopes):
     for s in scopes.copy():
@@ -363,10 +378,12 @@ def resolve_import_paths(scopes):
             scopes.update(resolve_import_paths(set(s.follow())))
     return scopes
 
+
 def filename_to_module_name(filename):
     if path.basename(filename) == '__init__.py':
         return path.dirname(filename).replace('/', '.')
     return path.splitext(filename)[0].replace('/', '.')
+
 
 class LineColToOffConverter(object):
     def __init__(self, source):
@@ -380,7 +397,7 @@ class LineColToOffConverter(object):
     def convert(self, linecol):
         line, col = linecol[0] - 1, linecol[1]         # convert line to 0-indexed
         if line >= len(self._cumulative_off):
-            return None, 'requested line out of bounds %d > %d' % (line+1, len(self._cumulative_off)-1)
+            return None, 'requested line out of bounds %d > %d' % (line + 1, len(self._cumulative_off) - 1)
         return self._cumulative_off[line] + col
 
 if __name__ == '__main__':
