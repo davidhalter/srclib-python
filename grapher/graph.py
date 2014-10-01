@@ -9,23 +9,20 @@ from collections import namedtuple
 
 import jedi
 
-global verbose_, quiet_
 SOURCE_FILE_BATCH = 10
 
 
 def log(msg):
-    if verbose_:
+    if _verbose:
         sys.stderr.write(msg + '\n')
 
 
 def error(msg):
-    if not quiet_:
+    if not _quiet:
         sys.stderr.write(msg + '\n')
 
 
-def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTrunc=None):
-    global verbose_, quiet_
-    verbose_, quiet_ = verbose, quiet
+def graph_wrapper(dir_, pretty=False, nSourceFilesTrunc=None):
     os.chdir(dir_)          # set working directory to be source directory
 
     source_files = get_source_files('.')
@@ -38,9 +35,9 @@ def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTr
         batch = source_files[i:i + SOURCE_FILE_BATCH]
 
         args = ["python", "-m", "grapher.graph", "--dir", "."]
-        if verbose:
+        if _verbose:
             args.append('--verbose')
-        if quiet:
+        if _quiet:
             args.append('--quiet')
         if pretty:
             args.append('--pretty')
@@ -59,9 +56,7 @@ def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTr
     print(json.dumps(all_data, indent=json_indent))
 
 
-def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
-    global verbose_, quiet_
-    verbose_, quiet_ = verbose, quiet
+def graph(dir_, source_files, pretty=False):
     os.chdir(dir_)          # set working directory to be source directory
 
     jedi.cache.never_clear_cache = True  # never clear caches, because running in batch
@@ -73,7 +68,12 @@ def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
         except Exception as e:
             error("could not precache parser for %s: %s" % (mf[1], str(e)))
 
-    defs, refs = get_defs_refs(source_files)
+    defs = []
+    refs = []
+    for file in source_files:
+        d, r = get_defs_refs(file)
+        defs += d
+        refs += r
 
     # Add module/package defs
     for module, filename in modules_and_files:
@@ -139,50 +139,40 @@ def get_source_files(dir_):
     return source_files
 
 
-def get_defs_refs(source_files):
+def get_defs_refs(file_path):
     defs, refs = [], []
 
-    evaluator = jedi.evaluate.Evaluator()
-    for i, source_file in enumerate(source_files):
-        parserContext = ParserContext(source_file)
-        linecoler = LineColToOffConverter(parserContext.source)
-
-        log('getting defs for source file (%d/%d) %s' % (i, len(source_files), source_file))
-        try:
-            for def_name in parserContext.defs():
-                jedi_def = jedi.api.classes.Definition(evaluator, def_name)
-                def_, err = jedi_def_to_def(jedi_def, source_file, linecoler)
-                if err is None:
-                    defs.append(def_)
-                else:
-                    error(err)
-        except Exception as e:
-            error('failed to get defs for source file %s: %s' % (source_file, str(e)))
-
-        log('getting refs for source file (%d/%d) %s' % (i, len(source_files), source_file))
-        try:
-            for name, def_ in parserContext.refs():
-                try:
-                    full_name, err = full_name_of_def(def_, from_ref=True)
-                    if err is not None:
-                        raise Exception(err)
-                    elif full_name == '':
-                        raise Exception('full_name is empty')
-                    start = linecoler.convert(name.start_pos)
-                    end = linecoler.convert(name.end_pos)
-                    refs.append(Ref(
-                        DefPath=full_name.replace('.', '/'),
-                        DefFile=def_.module_path,
-                        Def=False,
-                        File=source_file,
-                        Start=start,
-                        End=end,
-                        ToBuiltin=def_.in_builtin_module(),
-                    ))
-                except Exception as e:
-                    error('failed to convert ref (%s) in source file %s: %s' % (str((name, def_)), source_file, str(e)))
-        except Exception as e:
-            error('failed to get refs for source file %s: %s' % (source_file, str(e)))
+    # Get a clean UTF8 source.
+    linecoler = LineColToOffConverter(jedi.Script(path=file_path).source)
+    names = jedi.names(path=file_path, all_scopes=True, references=True)
+    for name in names:
+        if name.is_definition():
+            def_, err = jedi_def_to_def(name, file_path, linecoler)
+            if err is None:
+                defs.append(def_)
+            else:
+                error(err)
+        else:
+            try:
+                full_name, err = full_name_of_def(name, from_ref=True)
+                if err is not None:
+                    raise Exception(err)
+                elif full_name == '':
+                    raise Exception('full_name is empty')
+                start = linecoler.convert(name.start_pos)
+                end = linecoler.convert(name.end_pos)
+                refs.append(Ref(
+                    DefPath=full_name.replace('.', '/'),
+                    DefFile=def_.module_path,
+                    Def=False,
+                    File=file_path,
+                    Start=start,
+                    End=end,
+                    ToBuiltin=def_.in_builtin_module(),
+                ))
+            except Exception as e:
+                error('failed to convert ref (%s) in source file %s: %s'
+                      % (str((name, def_)), file_path, str(e)))
 
     return defs, refs
 
@@ -410,10 +400,11 @@ if __name__ == '__main__':
     argser.add_argument('--maxfiles', help='maximum number of files to process', default=None, type=int)
     args = argser.parse_args()
 
+    _verbose, _quiet = args.verbose, args.quiet
     if args.files is not None and len(args.files) > 0:
-        graph(args.dir, args.files, pretty=args.pretty, verbose=args.verbose, quiet=args.quiet)
+        graph(args.dir, args.files, pretty=args.pretty)
     elif args.dir is not None and args.dir != '':
-        graph_wrapper(args.dir, pretty=args.pretty, verbose=args.verbose, quiet=args.quiet, nSourceFilesTrunc=args.maxfiles)
+        graph_wrapper(args.dir, pretty=args.pretty, nSourceFilesTrunc=args.maxfiles)
     else:
         error('target directory must not be empty')
         os.exit(1)
