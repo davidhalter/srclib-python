@@ -159,15 +159,14 @@ def get_defs_refs(file_path):
                     raise Exception(err)
                 elif full_name == '':
                     raise Exception('full_name is empty')
-                start = linecoler.convert(name.start_pos)
-                end = linecoler.convert(name.end_pos)
+                start = linecoler.convert(name.line, name.column)
                 refs.append(Ref(
                     DefPath=full_name.replace('.', '/'),
                     DefFile=def_.module_path,
                     Def=False,
                     File=file_path,
                     Start=start,
-                    End=end,
+                    End=start + len(name.name),
                     ToBuiltin=def_.in_builtin_module(),
                 ))
             except Exception as e:
@@ -182,14 +181,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
     if err is not None:
         return None, err
 
-    # If def_ is a name, then the location of the definition is the last name part
-    if isinstance(def_._definition, jedi.parser.representation.Name):
-        last_name = def_._name
-        start = linecoler.convert(last_name.start_pos)
-        end = start + len(last_name._string)
-    else:
-        start = linecoler.convert(def_.start_pos)
-        end = start + len(def_.name)
+    start = linecoler.convert(def_.line, def_.column)
 
     return Def(
         Path=full_name.replace('.', '/'),
@@ -197,7 +189,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
         Name=def_.name,
         File=source_file,
         DefStart=start,
-        DefEnd=end,
+        DefEnd=start + len(def_.name),
         Exported=True,          # TODO: not all vars are exported
         Docstring=def_.docstring(),
         Data=None,
@@ -286,11 +278,11 @@ class LineColToOffConverter(object):
         self._cumulative_off = cumulative_off
 
     # Converts from (line, col) position to byte offset. line is 1-indexed, col is 0-indexed
-    def convert(self, linecol):
-        line, col = linecol[0] - 1, linecol[1]         # convert line to 0-indexed
+    def convert(self, line, column):
+        line = line - 1  # convert line to 0-indexed
         if line >= len(self._cumulative_off):
             return None, 'requested line out of bounds %d > %d' % (line + 1, len(self._cumulative_off) - 1)
-        return self._cumulative_off[line] + col
+        return self._cumulative_off[line] + column
 
 if __name__ == '__main__':
     argser = ap.ArgumentParser(description='graph.py is a command that dumps all Python definitions and references found in code rooted at a directory')
