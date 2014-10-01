@@ -62,11 +62,6 @@ def graph(dir_, source_files, pretty=False):
     jedi.cache.never_clear_cache = True  # never clear caches, because running in batch
 
     modules_and_files = [(filename_to_module_name(f), f) for f in source_files]
-    for mf in modules_and_files:
-        try:
-            jedi.api.precache_parser(mf[1])
-        except Exception as e:
-            error("could not precache parser for %s: %s" % (mf[1], str(e)))
 
     defs = []
     refs = []
@@ -77,7 +72,7 @@ def graph(dir_, source_files, pretty=False):
 
     # Add module/package defs
     for module, filename in modules_and_files:
-        defs.append(Def(
+        defs.insert(0, Def(
             Path=module.replace('.', '/'),
             Kind='module',
             Name=string.split(module, '.')[-1],
@@ -162,16 +157,16 @@ def get_defs_refs(file_path):
                 start = linecoler.convert(name.line, name.column)
                 refs.append(Ref(
                     DefPath=full_name.replace('.', '/'),
-                    DefFile=def_.module_path,
+                    DefFile=name.module_path,
                     Def=False,
                     File=file_path,
                     Start=start,
                     End=start + len(name.name),
-                    ToBuiltin=def_.in_builtin_module(),
+                    ToBuiltin=name.in_builtin_module(),
                 ))
             except Exception as e:
                 error('failed to convert ref (%s) in source file %s: %s'
-                      % (str((name, def_)), file_path, str(e)))
+                      % (name, file_path, e))
 
     return defs, refs
 
@@ -283,6 +278,7 @@ class LineColToOffConverter(object):
         if line >= len(self._cumulative_off):
             return None, 'requested line out of bounds %d > %d' % (line + 1, len(self._cumulative_off) - 1)
         return self._cumulative_off[line] + column
+
 
 if __name__ == '__main__':
     argser = ap.ArgumentParser(description='graph.py is a command that dumps all Python definitions and references found in code rooted at a directory')
