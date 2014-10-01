@@ -56,7 +56,7 @@ def graph_wrapper(dir_, pretty=False, verbose=False, quiet=False, nSourceFilesTr
         all_data['Refs'].extend(data['Refs'])
 
     json_indent = 2 if pretty else None
-    print json.dumps(all_data, indent=json_indent)
+    print(json.dumps(all_data, indent=json_indent))
 
 
 def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
@@ -123,10 +123,10 @@ def graph(dir_, source_files, pretty=False, verbose=False, quiet=False):
             unique_refs.append(ref)
 
     json_indent = 2 if pretty else None
-    print json.dumps({
+    print(json.dumps({
         'Defs': [d.__dict__ for d in unique_defs],
         'Refs': [r.__dict__ for r in unique_refs],
-    }, indent=json_indent)
+    }, indent=json_indent))
 
 
 def get_source_files(dir_):
