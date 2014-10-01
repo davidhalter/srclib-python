@@ -30,7 +30,7 @@ def graph_wrapper(dir_, pretty=False, nSourceFilesTrunc=None):
         source_files = source_files[:nSourceFilesTrunc]
 
     all_data = {'Defs': [], 'Refs': []}
-    for i in xrange(0, len(source_files), SOURCE_FILE_BATCH):
+    for i in range(0, len(source_files), SOURCE_FILE_BATCH):
         log('processing source files %d to %d of %d' % (i, i + SOURCE_FILE_BATCH, len(source_files)))
         batch = source_files[i:i + SOURCE_FILE_BATCH]
 
@@ -48,7 +48,7 @@ def graph_wrapper(dir_, pretty=False, nSourceFilesTrunc=None):
         if err is not None:
             sys.stderr.write(err)
 
-        data = json.loads(out)
+        data = json.loads(out.decode('utf-8'))
         all_data['Defs'].extend(data['Defs'])
         all_data['Refs'].extend(data['Refs'])
 
@@ -88,7 +88,7 @@ def graph(dir_, source_files, pretty=False):
     # place). Could do something smarter here, but for now, just take the first
     # definition that appears. (References also point to the first definition.)
     unique_defs = []
-    unique_def_paths = set([])
+    unique_def_paths = set()
     for def_ in defs:
         if not def_.Path in unique_def_paths:
             unique_defs.append(def_)
@@ -96,7 +96,7 @@ def graph(dir_, source_files, pretty=False):
 
     # Self-references, dedup
     unique_refs = []
-    unique_ref_keys = set([])
+    unique_ref_keys = set()
     for def_ in unique_defs:
         ref = Ref(
             DefPath=def_.Path,
@@ -297,4 +297,4 @@ if __name__ == '__main__':
         graph_wrapper(args.dir, pretty=args.pretty, nSourceFilesTrunc=args.maxfiles)
     else:
         error('target directory must not be empty')
-        os.exit(1)
+        sys.exit(1)
