@@ -150,17 +150,12 @@ def get_defs_refs(file_path):
     names = jedi.names(path=file_path, all_scopes=True, references=True)
     for name in names:
         if name.is_definition():
-            def_, err = jedi_def_to_def(name, file_path, linecoler)
-            if err is None:
-                defs.append(def_)
-            else:
-                error(err)
+            def_ = jedi_def_to_def(name, file_path, linecoler)
+            defs.append(def_)
         else:
             try:
-                full_name, err = full_name_of_def(name, from_ref=True)
-                if err is not None:
-                    raise Exception(err)
-                elif full_name == '':
+                full_name = full_name_of_def(name, from_ref=True)
+                if full_name == '':
                     raise Exception('full_name is empty')
                 start = linecoler.convert(name.line, name.column)
                 refs.append(Ref(
@@ -180,9 +175,7 @@ def get_defs_refs(file_path):
 
 
 def jedi_def_to_def(def_, source_file, linecoler):
-    full_name, err = full_name_of_def(def_)
-    if err is not None:
-        return None, err
+    full_name = full_name_of_def(def_)
 
     start = linecoler.convert(def_.line, def_.column)
 
@@ -196,7 +189,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
         Exported=True,          # TODO: not all vars are exported
         Docstring=def_.docstring(),
         Data=None,
-    ), None
+    )
 
 
 def full_name_of_def(def_, from_ref=False):
@@ -205,7 +198,7 @@ def full_name_of_def(def_, from_ref=False):
     # - doesn't distinguish between m(module).n(submodule) and m(module).n(contained-variable)
 
     if def_.in_builtin_module():
-        return def_.name, None
+        return def_.name
 
     if def_.type == 'statement':
         # kludge for self.* definitions
@@ -223,15 +216,13 @@ def full_name_of_def(def_, from_ref=False):
 
     module_path = def_.module_path
     if from_ref:
-        module_path, err = abs_module_path_to_relative_module_path(module_path)
-        if err is not None:
-            return None, err
+        module_path = abs_module_path_to_relative_module_path(module_path)
 
     supermodule = supermodule_path(module_path).replace('/', '.')
 
     # definition definitions' full_name property contains only the promixal module, so we need to add back the parent
     # module components. Luckily, the module_path is relative in this case.
-    return path.join(supermodule, full_name), None
+    return path.join(supermodule, full_name)
 
 
 def supermodule_path(module_path):
@@ -243,7 +234,7 @@ def supermodule_path(module_path):
 def abs_module_path_to_relative_module_path(module_path):
     relpath = path.relpath(module_path)  # relative from pwd (which is set in main)
     if not relpath.startswith('..'):
-        return relpath, None
+        return relpath
     components = module_path.split(os.sep)
     pIdx = -1
     for i, cmpt in enumerate(components):
@@ -251,15 +242,15 @@ def abs_module_path_to_relative_module_path(module_path):
             pIdx = i
             break
     if pIdx != -1:
-        return path.join(*components[i + 1:]), None
+        return path.join(*components[i + 1:])
 
     for i, cmpt in enumerate(components):
         if cmpt.startswith('python'):
             pIdx = i
             break
     if pIdx != -1:
-        return path.join(*components[i + 1:]), None
-    return None, ("could not convert absolute module path %s to relative module path" % module_path)
+        return path.join(*components[i + 1:])
+    raise Exception("could not convert absolute module path %s to relative module path" % module_path)
 
 
 Def = namedtuple('Def', ['Path', 'Kind', 'Name', 'File', 'DefStart', 'DefEnd', 'Exported', 'Docstring', 'Data'])
