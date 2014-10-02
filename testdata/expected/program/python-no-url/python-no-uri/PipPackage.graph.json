@@ -38,6 +38,19 @@
       "DefStart": 0,
       "DefEnd": 0,
       "Exported": true
+    },
+    {
+      "Repo": "github.com/sgtest/python-no-url",
+      "UnitType": "PipPackage",
+      "Unit": "python-no-uri",
+      "Path": "setuptools/setup",
+      "TreePath": "setuptools/setup",
+      "Name": "setup",
+      "Kind": "var",
+      "File": "setup.py",
+      "DefStart": 23,
+      "DefEnd": 28,
+      "Exported": true
     }
   ],
   "Refs": [
@@ -79,6 +92,19 @@
       "File": "setup.py",
       "Start": 0,
       "End": 0
+    },
+    {
+      "DefRepo": "github.com/sgtest/python-no-url",
+      "DefUnitType": "PipPackage",
+      "DefUnit": "python-no-uri",
+      "DefPath": "setuptools/setup",
+      "Def": true,
+      "Repo": "github.com/sgtest/python-no-url",
+      "UnitType": "PipPackage",
+      "Unit": "python-no-uri",
+      "File": "setup.py",
+      "Start": 23,
+      "End": 28
     }
   ]
 }
