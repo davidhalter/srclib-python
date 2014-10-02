@@ -123,8 +123,6 @@ def graph(dir_, source_files, pretty=False):
             unique_refs.append(ref)
 
     json_indent = 2 if pretty else None
-    print("sys: ", unique_defs[0], file=sys.stderr)
-    print(json.dumps([order_dict(d.__dict__) for d in unique_defs][:4]), file=sys.stderr)
     # Use OrderedDict to have reproducible text outputs.
     dct = {'Defs': [order_dict(d.__dict__) for d in unique_defs],
            'Refs': [order_dict(r.__dict__) for r in unique_refs]}
@@ -178,7 +176,6 @@ def jedi_def_to_def(def_, source_file, linecoler):
 
     start = linecoler.convert(def_.line, def_.column)
 
-    print(full_name, file=sys.stderr)
     return Def(
         Path=full_name.replace('.', '/'),
         Kind=def_.type,
