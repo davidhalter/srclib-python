@@ -81,7 +81,7 @@ def graph(dir_, source_files, pretty=False):
         defs.insert(0, Def(
             Path=module.replace('.', '/'),
             Kind='module',
-            Name=string.split(module, '.')[-1],
+            Name=module.split('.')[-1],
             File=filename,
             DefStart=0,
             DefEnd=0,
@@ -179,6 +179,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
 
     start = linecoler.convert(def_.line, def_.column)
 
+    print(full_name, file=sys.stderr)
     return Def(
         Path=full_name.replace('.', '/'),
         Kind=def_.type,
