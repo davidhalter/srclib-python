@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 import sys
 import json
-import string
 import argparse as ap
 import subprocess
 from os import path
@@ -215,7 +214,7 @@ def full_name_of_def(def_, from_ref=False):
     else:
         full_name = def_.full_name
 
-    module_path = def_.module_path
+    module_path = os.path.relpath(def_.module_path)
     if from_ref:
         module_path = abs_module_path_to_relative_module_path(module_path)
 
