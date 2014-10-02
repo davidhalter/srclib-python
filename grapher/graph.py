@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import json
@@ -5,7 +7,7 @@ import string
 import argparse as ap
 import subprocess
 from os import path
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 import jedi
 
@@ -49,11 +51,15 @@ def graph_wrapper(dir_, pretty=False, nSourceFilesTrunc=None):
             sys.stderr.write(err)
 
         data = json.loads(out.decode('utf-8'))
-        all_data['Defs'].extend(data['Defs'])
-        all_data['Refs'].extend(data['Refs'])
+        all_data['Defs'].extend(order_dict(dct) for dct in data['Defs'])
+        all_data['Refs'].extend(order_dict(dct) for dct in data['Refs'])
 
     json_indent = 2 if pretty else None
     print(json.dumps(all_data, indent=json_indent))
+
+
+def order_dict(dct):
+    return OrderedDict(sorted(dct.items(), key=lambda x: x[0]))
 
 
 def graph(dir_, source_files, pretty=False):
@@ -118,10 +124,12 @@ def graph(dir_, source_files, pretty=False):
             unique_refs.append(ref)
 
     json_indent = 2 if pretty else None
-    print(json.dumps({
-        'Defs': [d.__dict__ for d in unique_defs],
-        'Refs': [r.__dict__ for r in unique_refs],
-    }, indent=json_indent))
+    print("sys: ", unique_defs[0], file=sys.stderr)
+    print(json.dumps([order_dict(d.__dict__) for d in unique_defs][:4]), file=sys.stderr)
+    # Use OrderedDict to have reproducible text outputs.
+    dct = {'Defs': [order_dict(d.__dict__) for d in unique_defs],
+           'Refs': [order_dict(r.__dict__) for r in unique_refs]}
+    print(json.dumps(order_dict(dct), indent=json_indent))
 
 
 def get_source_files(dir_):
@@ -157,7 +165,7 @@ def get_defs_refs(file_path):
                 start = linecoler.convert(name.line, name.column)
                 refs.append(Ref(
                     DefPath=full_name.replace('.', '/'),
-                    DefFile=name.module_path,
+                    DefFile=path.relpath(name.module_path),
                     Def=False,
                     File=file_path,
                     Start=start,
@@ -182,7 +190,7 @@ def jedi_def_to_def(def_, source_file, linecoler):
         Path=full_name.replace('.', '/'),
         Kind=def_.type,
         Name=def_.name,
-        File=source_file,
+        File=path.relpath(def_.module_path),
         DefStart=start,
         DefEnd=start + len(def_.name),
         Exported=True,          # TODO: not all vars are exported
